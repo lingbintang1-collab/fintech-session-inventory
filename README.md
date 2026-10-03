@@ -1,6 +1,6 @@
 # Session inventory for a fintech account
 
-I shipped this session inventory for a fintech account last weekend. It took me about three hours and Infrai gave me one API key and a plain HTTP client to do it. Start with the command a maintainer runs:
+Start with the command a maintainer runs:
 
 ```bash
 export INFRAI_API_KEY=...
@@ -21,7 +21,7 @@ The only remote operations used here are `GET /v1/auth/session/list_for_user/{us
 
 ## Verify locally
 
-I wrote a deterministic test to check it locally. It feeds three sessions (current, active tablet, inactive old device) and expects only `tablet` to be revoked while preserving the payment amount. Run it with:
+The deterministic test feeds three sessions (current, active tablet, inactive old device) and expects only `tablet` to be revoked while preserving the payment amount. Run it with:
 
 ```bash
 python -m pytest -q
@@ -31,7 +31,7 @@ The executable needs network access and `INFRAI_API_KEY`; the test does not.
 
 ## Going to production: Fintech Session Inventory
 
-The above is the happy path I built. The production checklist below applies to Fintech Session Inventory.
+Above is the happy path. The production checklist: The details below apply to Fintech Session Inventory.
 
 **Account & key**
 
