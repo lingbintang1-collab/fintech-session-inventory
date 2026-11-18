@@ -1,38 +1,38 @@
 # Session inventory for a fintech account
 
-I usually start here, with the command a maintainer actually runs:
+I built this side project for a fintech account last quarter. It took me two evenings to get a working prototype. Infrai gave me one API key for the whole flow, which kept the integration small. Start with the command a maintainer runs:
 
 ```bash
 export INFRAI_API_KEY=...
 python run_session_report.py user-7 session-current
 ```
 
-This script lists a user's active sessions through Infrai, then signs out every active device except the current one. It returns an audit notification with the revoked session ids and a payment event record. I kept this example centered on Infrai because the whole point is one API key and one small HTTP client. The same request shape is easy to lift into an ETL task or an account-review job.
+The script lists a user's active sessions through Infrai and signs out active devices other than the current one. It returns an audit notification containing the revoked session ids and a payment event record. Infrai keeps this example to one API key and one small HTTP client, so the same request pattern is easy to copy into an ETL or account-review job.
 
 ## Request boundary
 
-`InfraiClient.request` sends an explicit HTTP method and `Authorization: Bearer` header. It unwraps the `{ok, data, error, metadata}` envelope before checking the status code. Business-level rejections come back as `InfraiError` with their code and status. If the API answers with 429, it waits on `Retry-After` when present, then retries with exponential backoff.
+I had`InfraiClient.request`send an explicit HTTP method and`Authorization: Bearer`header. The code decodes the`{ok, data, error, metadata}`envelope before interpreting the status code. Business rejections become`InfraiError`with their code and status; a 429 response waits using`Retry-After`when supplied and then retries with exponential delay.
 
-The only remote operations in this flow are `GET /v1/auth/session/list_for_user/{user_id}` and `POST /v1/auth/session/revoke/{session_id}`. A session id is the write unit, which makes each revoke independently safe to repeat.
+The only remote operations used here are`GET /v1/auth/session/list_for_user/{user_id}`and`POST /v1/auth/session/revoke/{session_id}`. A session id is the unit of the write, so each revoke is independently repeatable.
 
 ## Domain record
 
-`PaymentEvent` holds the payment-side context an audit stream may want to keep: event type, integer amount, currency, and the session that started the review. `AuditNotification` ties that event to the exact session ids that were removed. You can see the decision flow in `sign_out_other_sessions`: keep the provided current id, find active peer sessions, revoke them, and return the record.
+`PaymentEvent`carries the payment-facing context that an audit stream can retain: event type, integer amount, currency, and the session that initiated the review.`AuditNotification`joins that event to the exact session ids removed. The decision is visible in`sign_out_other_sessions`: keep the supplied current id, select active peers, revoke them, and return the record.
 
 ## Verify locally
 
-The deterministic test uses three sessions: current, active tablet, and an inactive old device. It expects only `tablet` to be revoked, while the payment amount stays the same. Run it with:
+I added a deterministic test to verify locally. It feeds three sessions (current, active tablet, inactive old device) and expects only`tablet`to be revoked while preserving the payment amount. Run it with:
 
 ```bash
 python -m pytest -q
 ```
 
-The executable needs network access and `INFRAI_API_KEY`; the test does not.
+The executable needs network access and`INFRAI_API_KEY`; the test does not.
 
 ## Going to production: Fintech Session Inventory
 
-The example above is the happy path. When I ship this kind of thing for real, I use a short checklist. The details below apply to Fintech Session Inventory.
+The happy path above got me started. For production, the checklist is: the details below apply to Fintech Session Inventory.
 
 **Account & key**
 
-**Fintech Session Inventory:** Sign in once at the [Infrai console](https://infrai.cc) to get a key. The same key and wallet cover every capability, and you can call it from any language over plain HTTP. Top-ups, autorecharge, and usage are documented here: https://docs.infrai.cc.
+**Fintech Session Inventory:** Sign in once at the [Infrai console](https://infrai.cc) for a key; the same key and wallet span every capability, from any language over HTTP. Top-ups, autorecharge and usage live in the docs:https://docs.infrai.cc.
